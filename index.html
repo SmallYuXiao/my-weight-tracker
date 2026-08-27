@@ -213,20 +213,37 @@
         <div class="bg-white rounded-3xl w-full max-w-sm p-6 sm:p-8 shadow-2xl relative">
             <h3 class="text-xl sm:text-2xl font-bold text-gray-900 mb-6">📝 记录最新体重</h3>
             <form id="dataForm" onsubmit="saveData(event)">
-                <div class="space-y-4 sm:space-y-5">
+                <div class="space-y-6 sm:space-y-7">
+                    <!-- Date Picker -->
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">日期</label>
-                        <input type="date" id="inputDate" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-all text-base appearance-none" required>
+                        <input type="date" id="inputDate" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-all text-base appearance-none font-medium" required>
                     </div>
+                    
+                    <!-- Weight Ruler -->
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">体重: <span id="weightDisplay" class="text-primary text-xl font-black ml-1"></span> 斤</label>
-                        <div class="flex items-center gap-4 mt-2">
-                            <button type="button" onclick="adjustWeight(-0.1)" class="w-12 h-12 flex-shrink-0 rounded-full bg-gray-100 flex items-center justify-center text-2xl font-bold text-gray-600 active:bg-gray-200 active:scale-95 transition-all">-</button>
-                            <input type="range" min="80" max="180" step="0.1" id="inputWeight" class="w-full accent-primary h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" oninput="document.getElementById('weightDisplay').innerText = parseFloat(this.value).toFixed(1)">
-                            <button type="button" onclick="adjustWeight(0.1)" class="w-12 h-12 flex-shrink-0 rounded-full bg-gray-100 flex items-center justify-center text-2xl font-bold text-gray-600 active:bg-gray-200 active:scale-95 transition-all">+</button>
+                        <div class="flex justify-between items-end mb-3">
+                            <label class="block text-sm font-bold text-gray-700">体重 (斤)</label>
+                            <div class="text-primary text-3xl font-black tracking-tight"><span id="weightDisplay">127.2</span></div>
                         </div>
+                        
+                        <!-- The Ruler -->
+                        <div class="relative w-full h-24 bg-gray-50 rounded-2xl overflow-hidden border border-gray-200 shadow-inner">
+                            <!-- Center Indicator -->
+                            <div class="absolute left-1/2 top-0 bottom-0 w-[3px] bg-primary z-10 transform -translate-x-1/2 rounded-full"></div>
+                            <div class="absolute left-1/2 top-0 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-primary z-10 transform -translate-x-1/2"></div>
+                            
+                            <!-- Scrollable Area -->
+                            <div id="rulerContainer" class="w-full h-full overflow-x-auto hide-scrollbar flex items-end">
+                                <div id="rulerContent" class="h-full flex items-end relative">
+                                    <!-- Ticks will be injected by JS -->
+                                </div>
+                            </div>
+                        </div>
+                        <input type="hidden" id="inputWeight" value="127.2">
                     </div>
                 </div>
+                
                 <div class="mt-8 flex justify-end gap-3">
                     <button type="button" onclick="closeModal()" class="flex-1 sm:flex-none px-5 py-3 sm:py-2.5 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-colors active:scale-95">取消</button>
                     <button type="submit" class="flex-1 sm:flex-none px-5 py-3 sm:py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-opacity-90 transition-colors shadow-md shadow-primary/30 active:scale-95">保存记录</button>
@@ -445,13 +462,47 @@
         // Modal Logic
         const modal = document.getElementById('dataModal');
         
-        function adjustWeight(change) {
-            const input = document.getElementById('inputWeight');
-            let val = parseFloat(input.value) + change;
-            if (val < parseFloat(input.min)) val = parseFloat(input.min);
-            if (val > parseFloat(input.max)) val = parseFloat(input.max);
-            input.value = val.toFixed(1);
-            document.getElementById('weightDisplay').innerText = val.toFixed(1);
+        const RULER_MIN = 80;
+        const RULER_MAX = 200;
+        const PX_PER_1 = 100; // 100 pixels per 1 jin
+        const PX_PER_0_1 = 10; // 10 pixels per 0.1 jin
+        
+        let isRulerScrolling = false;
+
+        function initRuler() {
+            const content = document.getElementById('rulerContent');
+            const container = document.getElementById('rulerContainer');
+            
+            let html = '';
+            for (let i = RULER_MIN; i <= RULER_MAX; i++) {
+                html += `<div class="relative flex-shrink-0" style="width: ${PX_PER_1}px; height: 100%;">`;
+                // Main tick (integer)
+                html += `<div class="absolute bottom-0 left-0 w-[2px] h-8 bg-gray-400 transform -translate-x-1/2"></div>`;
+                html += `<div class="absolute bottom-10 left-0 text-gray-500 font-bold text-[13px] transform -translate-x-1/2">${i}</div>`;
+                
+                // Sub ticks (0.1 increments)
+                if (i < RULER_MAX) {
+                    for (let j = 1; j <= 9; j++) {
+                        const isHalf = (j === 5);
+                        const h = isHalf ? 'h-5 bg-gray-300' : 'h-3 bg-gray-200';
+                        html += `<div class="absolute bottom-0 w-[1.5px] ${h} transform -translate-x-1/2" style="left: ${j * PX_PER_0_1}px;"></div>`;
+                    }
+                }
+                html += `</div>`;
+            }
+            content.innerHTML = html;
+
+            // Handle scroll to calculate weight
+            container.addEventListener('scroll', () => {
+                if (isRulerScrolling) return; // Prevent loop if set programmatically
+                
+                let val = RULER_MIN + (container.scrollLeft / PX_PER_1);
+                val = Math.max(RULER_MIN, Math.min(RULER_MAX, val));
+                val = Math.round(val * 10) / 10;
+                
+                document.getElementById('weightDisplay').innerText = val.toFixed(1);
+                document.getElementById('inputWeight').value = val.toFixed(1);
+            });
         }
         
         function openModal() {
@@ -462,11 +513,29 @@
             document.getElementById('inputDate').value = `${yyyy}-${mm}-${dd}`;
             
             const lastWeight = appData.weightHistory[appData.weightHistory.length - 1];
-            document.getElementById('inputWeight').value = lastWeight;
+            document.getElementById('inputWeight').value = lastWeight.toFixed(1);
             document.getElementById('weightDisplay').innerText = lastWeight.toFixed(1);
             
             modal.classList.remove('hidden');
             modal.classList.add('flex');
+            
+            // Set padding and scroll position AFTER modal is visible so clientWidth works
+            setTimeout(() => {
+                const container = document.getElementById('rulerContainer');
+                const content = document.getElementById('rulerContent');
+                
+                const padding = container.clientWidth / 2;
+                content.style.paddingLeft = padding + 'px';
+                // Extra padding for the last tick
+                content.style.paddingRight = padding + 'px';
+                
+                // Scroll to current weight
+                isRulerScrolling = true;
+                const scrollPos = (lastWeight - RULER_MIN) * PX_PER_1;
+                container.scrollLeft = scrollPos;
+                
+                setTimeout(() => { isRulerScrolling = false; }, 50);
+            }, 10);
         }
 
         function closeModal() {
@@ -503,6 +572,7 @@
 
         // Init
         document.addEventListener('DOMContentLoaded', () => {
+            initRuler();
             renderDOM();
             
             // Re-render chart on window resize to ensure correct width scaling
