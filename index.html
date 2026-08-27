@@ -215,12 +215,16 @@
             <form id="dataForm" onsubmit="saveData(event)">
                 <div class="space-y-4 sm:space-y-5">
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">日期 (如: 8/27)</label>
-                        <input type="text" id="inputDate" class="w-full px-4 py-3 sm:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-all text-base" required>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">日期</label>
+                        <input type="date" id="inputDate" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-all text-base appearance-none" required>
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">体重 (斤)</label>
-                        <input type="number" step="0.1" id="inputWeight" class="w-full px-4 py-3 sm:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-all text-base" required>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">体重: <span id="weightDisplay" class="text-primary text-xl font-black ml-1"></span> 斤</label>
+                        <div class="flex items-center gap-4 mt-2">
+                            <button type="button" onclick="adjustWeight(-0.1)" class="w-12 h-12 flex-shrink-0 rounded-full bg-gray-100 flex items-center justify-center text-2xl font-bold text-gray-600 active:bg-gray-200 active:scale-95 transition-all">-</button>
+                            <input type="range" min="80" max="180" step="0.1" id="inputWeight" class="w-full accent-primary h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" oninput="document.getElementById('weightDisplay').innerText = parseFloat(this.value).toFixed(1)">
+                            <button type="button" onclick="adjustWeight(0.1)" class="w-12 h-12 flex-shrink-0 rounded-full bg-gray-100 flex items-center justify-center text-2xl font-bold text-gray-600 active:bg-gray-200 active:scale-95 transition-all">+</button>
+                        </div>
                     </div>
                 </div>
                 <div class="mt-8 flex justify-end gap-3">
@@ -441,32 +445,46 @@
         // Modal Logic
         const modal = document.getElementById('dataModal');
         
+        function adjustWeight(change) {
+            const input = document.getElementById('inputWeight');
+            let val = parseFloat(input.value) + change;
+            if (val < parseFloat(input.min)) val = parseFloat(input.min);
+            if (val > parseFloat(input.max)) val = parseFloat(input.max);
+            input.value = val.toFixed(1);
+            document.getElementById('weightDisplay').innerText = val.toFixed(1);
+        }
+        
         function openModal() {
             const today = new Date();
-            document.getElementById('inputDate').value = (today.getMonth() + 1) + '/' + today.getDate();
-            document.getElementById('inputWeight').value = appData.weightHistory[appData.weightHistory.length - 1];
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            document.getElementById('inputDate').value = `${yyyy}-${mm}-${dd}`;
+            
+            const lastWeight = appData.weightHistory[appData.weightHistory.length - 1];
+            document.getElementById('inputWeight').value = lastWeight;
+            document.getElementById('weightDisplay').innerText = lastWeight.toFixed(1);
             
             modal.classList.remove('hidden');
             modal.classList.add('flex');
-            // Auto focus input with a small delay for mobile keyboards
-            setTimeout(() => {
-                document.getElementById('inputWeight').focus();
-            }, 100);
         }
 
         function closeModal() {
             modal.classList.add('hidden');
             modal.classList.remove('flex');
-            document.activeElement.blur(); // dismiss keyboard
         }
 
         function saveData(e) {
             e.preventDefault();
             
-            const dateStr = document.getElementById('inputDate').value;
+            const rawDate = document.getElementById('inputDate').value; // "YYYY-MM-DD"
             const newWeight = parseFloat(document.getElementById('inputWeight').value);
 
-            if (!dateStr || isNaN(newWeight)) return;
+            if (!rawDate || isNaN(newWeight)) return;
+
+            // Convert to "M/D" for the chart labels
+            const parts = rawDate.split('-');
+            const dateStr = parseInt(parts[1]) + '/' + parseInt(parts[2]);
 
             // Optional: increase limits or remove shift to keep more history since we can scroll now!
             appData.labels.push(dateStr);
