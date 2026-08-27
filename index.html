@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>体重管理追踪面板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5B4AF0',
+                        accentRed: '#F74141',
+                        accentGreen: '#18C99B',
+                        accentYellow: '#FBBF24',
+                        accentBlue: '#2C93F1'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background-color: #F8F9FB;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .timeline-container::before {
+            content: '';
+            position: absolute;
+            left: 11px;
+            top: 24px;
+            bottom: 30px;
+            width: 2px;
+            background-color: #f3f4f6;
+            z-index: 0;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.2s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        /* 隐藏滚动条但保留滚动功能 */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+</head>
+<body class="text-gray-800 relative pb-10">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        
+        <!-- Header Section -->
+        <div class="w-full rounded-[2rem] relative overflow-hidden mb-6 sm:mb-8 border border-gray-100 shadow-sm min-h-[12rem] sm:min-h-[16rem]" style="background: linear-gradient(180deg, #DCEAFE 0%, #E6F1FE 50%, #B8E4B4 50%, #90D488 100%);">
+            <div class="absolute top-4 right-10 w-24 sm:w-32 h-12 bg-white opacity-40 rounded-full blur-md"></div>
+            <div class="absolute top-10 right-32 w-20 sm:w-24 h-8 bg-white opacity-40 rounded-full blur-md"></div>
+            
+            <div class="relative z-10 p-6 sm:p-10 h-full flex flex-col justify-center">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-5 sm:gap-0">
+                    <div>
+                        <h1 class="text-2xl sm:text-[2rem] font-bold text-gray-900 leading-tight">专属体重管理面板 👋</h1>
+                        <p class="text-sm sm:text-base text-gray-700 font-medium mt-2">专注记录您的体重变化。从 137.2斤 至今，您的减重成绩非常出色！<br class="hidden sm:block">继续保持，稳步迈向目标。</p>
+                    </div>
+                    <!-- Update Data Button -->
+                    <button onclick="openModal()" class="w-full md:w-auto px-5 py-3.5 bg-white text-primary font-bold text-base rounded-xl shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 active:scale-95">
+                        <i class="fa-solid fa-pen-to-square"></i> 记录今日体重
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4 KPI Cards (Weight Centric) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+            <!-- Latest Weight -->
+            <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border-t-[5px] border-primary flex flex-col">
+                <div class="flex justify-between items-start mb-3 sm:mb-4">
+                    <span class="text-[0.7rem] font-bold text-gray-400 uppercase tracking-widest">最新体重</span>
+                    <i class="fa-solid fa-scale-balanced text-primary"></i>
+                </div>
+                <div class="flex-grow">
+                    <h2 class="text-3xl font-bold text-gray-900"><span id="val-weight-current">127.2</span> <span class="text-xl font-medium">斤</span></h2>
+                </div>
+                <div class="mt-2 text-sm font-semibold text-accentGreen flex items-center gap-1">
+                    <i class="fa-solid fa-arrow-down text-xs"></i> 呈下降趋势
+                </div>
+            </div>
+
+            <!-- Total Loss -->
+            <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border-t-[5px] border-accentBlue flex flex-col">
+                <div class="flex justify-between items-start mb-3 sm:mb-4">
+                    <span class="text-[0.7rem] font-bold text-gray-400 uppercase tracking-widest">目前已减</span>
+                    <i class="fa-solid fa-arrow-trend-down text-accentBlue"></i>
+                </div>
+                <div class="flex-grow">
+                    <h2 class="text-3xl font-bold text-gray-900"><span id="val-weight-loss">10.0</span> <span class="text-xl font-medium">斤</span></h2>
+                </div>
+                <div class="mt-2 text-sm font-semibold text-accentBlue flex items-center gap-1">
+                    历史最高 137.2 斤
+                </div>
+            </div>
+
+            <!-- Distance to Goal -->
+            <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border-t-[5px] border-accentYellow flex flex-col">
+                <div class="flex justify-between items-start mb-3 sm:mb-4">
+                    <span class="text-[0.7rem] font-bold text-gray-400 uppercase tracking-widest">距离阶段目标 (120斤)</span>
+                    <i class="fa-solid fa-flag text-accentYellow"></i>
+                </div>
+                <div class="flex-grow">
+                    <h2 class="text-3xl font-bold text-gray-900"><span id="val-weight-left">7.2</span> <span class="text-xl font-medium">斤</span></h2>
+                </div>
+                <div class="mt-2 text-sm font-semibold text-yellow-600 flex items-center gap-1">
+                    <i class="fa-solid fa-fire text-xs"></i> 胜利在望
+                </div>
+            </div>
+
+            <!-- BMI -->
+            <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border-t-[5px] border-accentGreen flex flex-col">
+                <div class="flex justify-between items-start mb-3 sm:mb-4">
+                    <span class="text-[0.7rem] font-bold text-gray-400 uppercase tracking-widest">当前 BMI</span>
+                    <i class="fa-solid fa-child-reaching text-accentGreen"></i>
+                </div>
+                <div class="flex-grow">
+                    <h2 class="text-3xl font-bold text-gray-900" id="val-bmi">26.8</h2>
+                </div>
+                <div class="mt-2 text-xs sm:text-sm font-semibold text-gray-500 flex flex-col gap-1">
+                    <span>健康标准范围: 18.5 - 23.9</span>
+                    <span class="text-[10px] sm:text-xs text-accentGreen">(对应: 87.8 - 113.4斤)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Weight Progress Chart -->
+            <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_2px_10px_rgba(0,0,0,0.02)] lg:col-span-8 flex flex-col">
+                <div class="flex justify-between items-center mb-4 sm:mb-8">
+                    <h3 class="text-lg font-bold text-gray-900">体重记录曲线 (斤)</h3>
+                    <!-- 移动端滑动的友好提示 -->
+                    <div class="text-[10px] text-gray-400 bg-gray-50 px-2 py-1 rounded-md sm:hidden flex items-center gap-1">
+                        <i class="fa-solid fa-left-right"></i> 左右滑动查看
+                    </div>
+                </div>
+                
+                <!-- Scrollable Container for Mobile -->
+                <div id="chartScrollContainer" class="flex-grow w-full overflow-x-auto hide-scrollbar relative">
+                    <!-- Dynamic Width Wrapper -->
+                    <div id="chartWrapper" class="h-[320px] sm:h-[400px]" style="min-width: 100%;">
+                        <canvas id="weightChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Pane: Analysis & Advice -->
+            <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_2px_10px_rgba(0,0,0,0.02)] lg:col-span-4 flex flex-col">
+                <h3 class="text-lg font-bold text-gray-900 mb-5 sm:mb-6">表现与建议</h3>
+                
+                <div class="flex-grow relative timeline-container">
+                    <!-- Item 1 -->
+                    <div class="relative flex items-start mb-5 sm:mb-6 z-10">
+                        <div class="w-6 h-6 rounded-full bg-primary flex-shrink-0 flex items-center justify-center mt-0.5 border-4 border-white shadow-sm"><i class="fa-solid fa-trophy text-white text-[10px]"></i></div>
+                        <div class="ml-4 flex-grow">
+                            <h4 class="text-sm font-bold text-gray-900">减重趋势极为优异</h4>
+                            <p class="text-xs text-gray-500 mt-1">从 8月16日 的 137.2斤 降至 127.2斤，10天内甩掉了约 10斤，方向非常正确！</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Item 2 -->
+                    <div class="relative flex items-start mb-5 sm:mb-6 z-10">
+                        <div class="w-6 h-6 rounded-full bg-accentGreen flex-shrink-0 flex items-center justify-center mt-0.5 border-4 border-white shadow-sm"><i class="fa-solid fa-shoe-prints text-white text-[10px]"></i></div>
+                        <div class="ml-4 flex-grow">
+                            <h4 class="text-sm font-bold text-gray-900">保持活动量</h4>
+                            <p class="text-xs text-gray-500 mt-1">建议每日保持 8000 步以上，最近几天您的步行量极大，这极大地带动了体重下降。</p>
+                        </div>
+                    </div>
+
+                    <!-- Item 3 -->
+                    <div class="relative flex items-start mb-5 sm:mb-6 z-10">
+                        <div class="w-6 h-6 rounded-full bg-accentYellow flex-shrink-0 flex items-center justify-center mt-0.5 border-4 border-white shadow-sm"><i class="fa-solid fa-scale-balanced text-white text-[10px]"></i></div>
+                        <div class="ml-4 flex-grow">
+                            <h4 class="text-sm font-bold text-gray-900">固定称重习惯</h4>
+                            <p class="text-xs text-gray-500 mt-1">建议每天早上起床后空腹称重，这样每天的对比才最准确。轻微的波动不用在意，看一周的趋势即可。</p>
+                        </div>
+                    </div>
+
+                    <!-- Item 4 -->
+                    <div class="relative flex items-start z-10 opacity-70">
+                        <div class="w-6 h-6 rounded-full bg-gray-300 flex-shrink-0 flex items-center justify-center mt-0.5 border-4 border-white shadow-sm"></div>
+                        <div class="ml-4 flex-grow">
+                            <h4 class="text-sm font-bold text-gray-900">健康目标</h4>
+                            <p class="text-xs text-gray-500 mt-1">当前阶段目标为 120 斤，当达到后，可以进一步设定新的理想目标。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Update Modal (Simplified for Weight) -->
+    <div id="dataModal" class="fixed inset-0 bg-gray-900 bg-opacity-60 z-50 hidden items-center justify-center fade-in backdrop-blur-sm p-4">
+        <div class="bg-white rounded-3xl w-full max-w-sm p-6 sm:p-8 shadow-2xl relative">
+            <h3 class="text-xl sm:text-2xl font-bold text-gray-900 mb-6">📝 记录最新体重</h3>
+            <form id="dataForm" onsubmit="saveData(event)">
+                <div class="space-y-4 sm:space-y-5">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">日期 (如: 8/27)</label>
+                        <input type="text" id="inputDate" class="w-full px-4 py-3 sm:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-all text-base" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">体重 (斤)</label>
+                        <input type="number" step="0.1" id="inputWeight" class="w-full px-4 py-3 sm:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-all text-base" required>
+                    </div>
+                </div>
+                <div class="mt-8 flex justify-end gap-3">
+                    <button type="button" onclick="closeModal()" class="flex-1 sm:flex-none px-5 py-3 sm:py-2.5 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-colors active:scale-95">取消</button>
+                    <button type="submit" class="flex-1 sm:flex-none px-5 py-3 sm:py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-opacity-90 transition-colors shadow-md shadow-primary/30 active:scale-95">保存记录</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Chart & Logic Setup -->
+    <script>
+        // Constants in Jin (斤)
+        const HEIGHT = 1.54; // m
+        const START_WEIGHT = 137.2; // 斤 (changed based on user input)
+        const GOAL_WEIGHT = 120.0; // 斤 (60.0 kg) - current phase goal
+        const HEALTHY_WEIGHT_MAX = 113.4; // 斤 (56.7 kg) - upper bound of healthy BMI (23.9)
+
+        // Initial / Default Data in Jin
+        let appData = {
+            labels: ['8/16', '8/17', '8/18', '8/19', '8/20', '8/21', '8/22', '8/23', '8/24', '8/25', '8/26'],
+            // Converted original kg array * 2
+            weightHistory: [137.2, 132.2, 132.1, 132.4, 128.2, 128.5, 129.2, 127.6, 129.8, 126.9, 127.2]
+        };
+
+        // Load from LocalStorage (new key for 'jin' unit)
+        const savedData = localStorage.getItem('myWeightDataJin');
+        if (savedData) {
+            appData = JSON.parse(savedData);
+        }
+
+        let weightChartInstance = null;
+
+        function renderDOM() {
+            const currentWeight = appData.weightHistory[appData.weightHistory.length - 1];
+            
+            // Calculate Metrics
+            const totalLoss = Math.max(0, START_WEIGHT - currentWeight);
+            const leftToGoal = Math.max(0, currentWeight - GOAL_WEIGHT);
+            
+            // BMI must be calculated using kg (1斤 = 0.5kg)
+            const currentWeightKg = currentWeight / 2;
+            const bmi = (currentWeightKg / (HEIGHT * HEIGHT));
+
+            // Update Text Nodes
+            document.getElementById('val-weight-current').innerText = currentWeight.toFixed(1);
+            document.getElementById('val-weight-loss').innerText = totalLoss.toFixed(1);
+            document.getElementById('val-weight-left').innerText = leftToGoal.toFixed(1);
+            document.getElementById('val-bmi').innerText = bmi.toFixed(1);
+
+            // Dynamically calculate chart width to maintain fixed distance between dates
+            const minPixelsPerPoint = 55; // 间距大约 55 像素
+            const calculatedMinWidth = appData.labels.length * minPixelsPerPoint;
+            
+            const chartWrapper = document.getElementById('chartWrapper');
+            // Ensure it at least fills the screen, but extends if data is long
+            chartWrapper.style.minWidth = Math.max(calculatedMinWidth, chartWrapper.parentElement.clientWidth) + 'px';
+
+            // Render/Update Chart
+            const ctx = document.getElementById('weightChart').getContext('2d');
+            
+            if (weightChartInstance) {
+                weightChartInstance.destroy();
+            }
+
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(91, 74, 240, 0.2)');
+            gradient.addColorStop(1, 'rgba(91, 74, 240, 0)');
+
+            // Clean integer min/max for 1-jin steps
+            const minWeight = Math.floor(Math.min(...appData.weightHistory)) - 1;
+            const maxWeight = Math.ceil(Math.max(...appData.weightHistory)) + 1;
+            const yAxisMin = minWeight < HEALTHY_WEIGHT_MAX ? minWeight - 1 : Math.floor(HEALTHY_WEIGHT_MAX) - 2;
+
+            weightChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: appData.labels,
+                    datasets: [
+                        {
+                            label: '体重 (斤)',
+                            data: appData.weightHistory,
+                            borderColor: '#5B4AF0',
+                            backgroundColor: gradient,
+                            borderWidth: 3,
+                            pointBackgroundColor: '#ffffff',
+                            pointBorderColor: '#5B4AF0',
+                            pointBorderWidth: 2,
+                            pointRadius: 4, // slightly smaller for mobile
+                            pointHoverRadius: 6,
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: '阶段小目标',
+                            data: Array(appData.labels.length).fill(GOAL_WEIGHT),
+                            borderColor: '#FBBF24', // Yellow for intermediate goal
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0
+                        },
+                        {
+                            label: '最终健康体重',
+                            data: Array(appData.labels.length).fill(HEALTHY_WEIGHT_MAX),
+                            borderColor: '#18C99B', // Green for ultimate healthy weight
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1f2937',
+                            padding: 10,
+                            titleFont: { size: 13, family: "'Inter', sans-serif" },
+                            bodyFont: { size: 13, font: "bold", family: "'Inter', sans-serif" },
+                            cornerRadius: 8,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) { return context.parsed.y + ' 斤'; }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false, drawBorder: false },
+                            ticks: { 
+                                color: '#9ca3af', 
+                                font: { family: "'Inter', sans-serif", size: 10 },
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            display: true,
+                            grid: { 
+                                color: 'rgba(243, 244, 246, 0.8)',
+                                drawBorder: false,
+                            },
+                            ticks: { 
+                                color: '#9ca3af', 
+                                font: { family: "'Inter', sans-serif", size: 10 },
+                                stepSize: 1 // Force Y-axis interval to 1 jin
+                            },
+                            min: yAxisMin,
+                            max: maxWeight
+                        }
+                    },
+                    layout: {
+                        padding: { top: 20, bottom: 5, left: 5, right: 10 }
+                    }
+                },
+                plugins: [{
+                    id: 'customLabels',
+                    afterDatasetsDraw: (chart) => {
+                        const ctx = chart.ctx;
+                        ctx.save();
+                        const dataset = chart.data.datasets[0]; // The weight line
+                        const meta = chart.getDatasetMeta(0);
+                        
+                        if (!meta.hidden) {
+                            meta.data.forEach((element, index) => {
+                                const dataString = dataset.data[index].toString();
+                                
+                                // Draw text styling
+                                ctx.fillStyle = '#5B4AF0';
+                                ctx.font = '600 11px "Inter", "PingFang SC", sans-serif';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'bottom';
+                                
+                                // Position above the dot
+                                const position = element.tooltipPosition();
+                                ctx.fillText(dataString, position.x, position.y - 8);
+                            });
+                        }
+                        ctx.restore();
+                    },
+                    afterDraw: (chart) => {
+                        const ctx = chart.ctx;
+                        const yAxis = chart.scales.y;
+                        const xAxis = chart.scales.x;
+                        
+                        ctx.save();
+                        // Make font slightly smaller for mobile
+                        ctx.font = 'bold 11px "PingFang SC", "Microsoft YaHei", sans-serif';
+                        
+                        // Phase goal label (Yellow)
+                        const yPosGoal = yAxis.getPixelForValue(GOAL_WEIGHT);
+                        ctx.fillStyle = '#FBBF24';
+                        ctx.fillText('目标 ' + GOAL_WEIGHT + '斤', xAxis.left + 5, yPosGoal - 6);
+                        
+                        // Healthy max weight label (Green)
+                        const yPosHealthy = yAxis.getPixelForValue(HEALTHY_WEIGHT_MAX);
+                        ctx.fillStyle = '#18C99B';
+                        ctx.fillText('健康 ' + HEALTHY_WEIGHT_MAX + '斤', xAxis.left + 5, yPosHealthy - 6);
+                        
+                        ctx.restore();
+                    }
+                }]
+            });
+
+            // Auto-scroll to the rightmost (latest) data
+            setTimeout(() => {
+                const scrollContainer = document.getElementById('chartScrollContainer');
+                scrollContainer.scrollLeft = scrollContainer.scrollWidth;
+            }, 100);
+        }
+
+        // Modal Logic
+        const modal = document.getElementById('dataModal');
+        
+        function openModal() {
+            const today = new Date();
+            document.getElementById('inputDate').value = (today.getMonth() + 1) + '/' + today.getDate();
+            document.getElementById('inputWeight').value = appData.weightHistory[appData.weightHistory.length - 1];
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            // Auto focus input with a small delay for mobile keyboards
+            setTimeout(() => {
+                document.getElementById('inputWeight').focus();
+            }, 100);
+        }
+
+        function closeModal() {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.activeElement.blur(); // dismiss keyboard
+        }
+
+        function saveData(e) {
+            e.preventDefault();
+            
+            const dateStr = document.getElementById('inputDate').value;
+            const newWeight = parseFloat(document.getElementById('inputWeight').value);
+
+            if (!dateStr || isNaN(newWeight)) return;
+
+            // Optional: increase limits or remove shift to keep more history since we can scroll now!
+            appData.labels.push(dateStr);
+            appData.weightHistory.push(newWeight);
+            
+            // Allow up to 30 days of data before dropping old ones
+            if (appData.labels.length > 30) {
+                appData.labels.shift();
+                appData.weightHistory.shift();
+            }
+
+            localStorage.setItem('myWeightDataJin', JSON.stringify(appData));
+            renderDOM();
+            closeModal();
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            renderDOM();
+            
+            // Re-render chart on window resize to ensure correct width scaling
+            window.addEventListener('resize', () => {
+                if(weightChartInstance) {
+                    const minPixelsPerPoint = 55;
+                    const calculatedMinWidth = appData.labels.length * minPixelsPerPoint;
+                    const chartWrapper = document.getElementById('chartWrapper');
+                    chartWrapper.style.minWidth = Math.max(calculatedMinWidth, chartWrapper.parentElement.clientWidth) + 'px';
+                    weightChartInstance.resize();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
