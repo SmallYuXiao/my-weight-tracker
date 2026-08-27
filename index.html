@@ -216,8 +216,8 @@
                 <div class="space-y-6 sm:space-y-7">
                     <!-- Date Picker -->
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">日期</label>
-                        <input type="date" id="inputDate" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-all text-base appearance-none font-medium" required>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">日期与时间</label>
+                        <input type="datetime-local" id="inputDate" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-all text-base appearance-none font-medium" required>
                     </div>
                     
                     <!-- Weight Ruler -->
@@ -510,7 +510,9 @@
             const yyyy = today.getFullYear();
             const mm = String(today.getMonth() + 1).padStart(2, '0');
             const dd = String(today.getDate()).padStart(2, '0');
-            document.getElementById('inputDate').value = `${yyyy}-${mm}-${dd}`;
+            const hh = String(today.getHours()).padStart(2, '0');
+            const min = String(today.getMinutes()).padStart(2, '0');
+            document.getElementById('inputDate').value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
             
             const lastWeight = appData.weightHistory[appData.weightHistory.length - 1];
             document.getElementById('inputWeight').value = lastWeight.toFixed(1);
@@ -546,14 +548,18 @@
         function saveData(e) {
             e.preventDefault();
             
-            const rawDate = document.getElementById('inputDate').value; // "YYYY-MM-DD"
+            const rawDate = document.getElementById('inputDate').value; // "YYYY-MM-DDThh:mm"
             const newWeight = parseFloat(document.getElementById('inputWeight').value);
 
             if (!rawDate || isNaN(newWeight)) return;
 
-            // Convert to "M/D" for the chart labels
-            const parts = rawDate.split('-');
-            const dateStr = parseInt(parts[1]) + '/' + parseInt(parts[2]);
+            // Convert to "M/D hh:mm" for the chart labels
+            const dt = new Date(rawDate);
+            const m = dt.getMonth() + 1;
+            const d = dt.getDate();
+            const h = String(dt.getHours()).padStart(2, '0');
+            const mn = String(dt.getMinutes()).padStart(2, '0');
+            const dateStr = `${m}/${d} ${h}:${mn}`;
 
             // Optional: increase limits or remove shift to keep more history since we can scroll now!
             appData.labels.push(dateStr);
